@@ -2,5 +2,9 @@
   "name": "etfanalysis",
   "version": "0.1.0",
   "type": "module",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "typescript": "^6.0.3"
+  }
 }
