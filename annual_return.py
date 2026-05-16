@@ -31,6 +31,12 @@ def main():
         default=1.0,
     )
     parser.add_argument(
+        "--supplementary-leverage",
+        metavar="SL",
+        type=float,
+        default=1.0,
+    )
+    parser.add_argument(
         "--last-date",
         metavar="YYYY-MM-DD",
         type=str,
@@ -50,34 +56,36 @@ def main():
     series_of_price: npt.NDArray[np.float64] = np.array([row[5].replace(",", "") for row in table], dtype="float64")
     series_of_date: npt.NDArray[np.datetime64] = np.array([dt.datetime.strptime(row[0], "%b %d, %Y") for row in table], dtype="datetime64[D]")
 
-    # Read supplementary JSON
-    if args.path_to_supplementary_json is None:
-        supplementary_series_of_price: npt.NDArray[np.float64] = np.array([], dtype="float64")
-        supplementary_series_of_date: npt.NDArray[np.datetime64] = np.array([], dtype="datetime64[D]")
-    else:
-        with open(args.path_to_supplementary_json, "r") as supplementary_fp:
-            supplementary_table: list[list[str]] = json.load(supplementary_fp)
-        supplementary_series_of_price: npt.NDArray[np.float64] = np.array([supplementary_row[5].replace(",", "") for supplementary_row in supplementary_table], dtype="float64")
-        supplementary_series_of_date: npt.NDArray[np.datetime64] = np.array([dt.datetime.strptime(supplementary_row[0], "%b %d, %Y") for supplementary_row in supplementary_table], dtype="datetime64[D]")
-
-    # Supplement series of price and date
-    supplementary_series_of_price = supplementary_series_of_price[supplementary_series_of_date <= series_of_date[-1]]
-    supplementary_series_of_date = supplementary_series_of_date[supplementary_series_of_date <= series_of_date[-1]]
-
-    if len(supplementary_series_of_price) > 0:
-        supplementary_series_of_price = supplementary_series_of_price[1:] * series_of_price[-1] / supplementary_series_of_price[0]
-        supplementary_series_of_date = supplementary_series_of_date[1:]
-
-    series_of_price = np.concatenate((series_of_price, supplementary_series_of_price))
-    series_of_date = np.concatenate((series_of_date, supplementary_series_of_date))
-
     # Get leverage
     leverage = np.float64(args.leverage)
     print(f"Leverage: {leverage}")
 
     # Compute series of daily return
-    series_of_daily_return = (series_of_price[:-1] / series_of_price[1:] - 1) * leverage + 1
+    series_of_daily_return: npt.NDArray[np.float64] = (series_of_price[:-1] / series_of_price[1:] - 1) * leverage + 1
     series_of_date = series_of_date[:-1]
+
+    if args.path_to_supplementary_json is not None:
+        # Read supplementary JSON
+        with open(args.path_to_supplementary_json, "r") as supplementary_fp:
+            supplementary_table: list[list[str]] = json.load(supplementary_fp)
+        supplementary_series_of_price: npt.NDArray[np.float64] = np.array([supplementary_row[5].replace(",", "") for supplementary_row in supplementary_table], dtype="float64")
+        supplementary_series_of_date: npt.NDArray[np.datetime64] = np.array([dt.datetime.strptime(supplementary_row[0], "%b %d, %Y") for supplementary_row in supplementary_table], dtype="datetime64[D]")
+
+        # Filter supplementary series of price and date
+        supplementary_series_of_price = supplementary_series_of_price[supplementary_series_of_date < series_of_date[-1]]
+        supplementary_series_of_date = supplementary_series_of_date[supplementary_series_of_date < series_of_date[-1]]
+
+        # Get supplementary leverage
+        supplementary_leverage = np.float64(args.supplementary_leverage)
+        print(f"Supplementary leverage: {supplementary_leverage}")
+
+        # Compute supplementary series of daily return
+        supplementary_series_of_daily_return: npt.NDArray[np.float64] = (supplementary_series_of_price[:-1] / supplementary_series_of_price[1:] - 1) * supplementary_leverage + 1
+        supplementary_series_of_date = supplementary_series_of_date[:-1]
+
+        # Merge series of daily return and supplementary series of daily return
+        series_of_daily_return = np.concatenate((series_of_daily_return, supplementary_series_of_daily_return))
+        series_of_date = np.concatenate((series_of_date, supplementary_series_of_date))
 
     # Get last date
     if args.last_date is None:
@@ -110,27 +118,27 @@ def main():
 
     lower_bound_of_annual_volatility: np.float64 = np.sqrt((len(series_of_logarithm_of_annual_return) - 1) / stats.chi2.ppf(0.95, df=len(series_of_logarithm_of_annual_return)-1)) * annual_volatility  # type: ignore
     upper_bound_of_annual_volatility: np.float64 = np.sqrt((len(series_of_logarithm_of_annual_return) - 1) / stats.chi2.ppf(0.05, df=len(series_of_logarithm_of_annual_return)-1)) * annual_volatility  # type: ignore
-    print(f"90% confidence interval of annual volatility: [{lower_bound_of_annual_volatility}, {upper_bound_of_annual_volatility}]")
+    print(f"90% confidence interval of annual volatility: [{lower_bound_of_annual_volatility:.2f}, {upper_bound_of_annual_volatility:.2f}]")
 
     # Compute 90% confidence interval of annual drift minus annual volatility squared halved
     annual_drift_minus_annual_volatility_squared_halved: np.float64 = series_of_logarithm_of_annual_return.mean()
 
     lower_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.95, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
     upper_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.05, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
-    print(f"90% confidence interval of annual drift minus annual volatility squared halved: [{lower_bound_of_annual_drift_minus_annual_volatility_squared_halved}, {upper_bound_of_annual_drift_minus_annual_volatility_squared_halved}]")
+    print(f"90% confidence interval of annual drift minus annual volatility squared halved: [{lower_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}, {upper_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}]")
 
     # Compute 90% confidence interval of median of annual return
     lower_bound_of_median_of_annual_return: np.float64 = np.exp(lower_bound_of_annual_drift_minus_annual_volatility_squared_halved)
     upper_bound_of_median_of_annual_return: np.float64 = np.exp(upper_bound_of_annual_drift_minus_annual_volatility_squared_halved)
-    print(f"90% confidence interval of median of annual return: [{lower_bound_of_median_of_annual_return}, {upper_bound_of_median_of_annual_return}]")
+    print(f"90% confidence interval of median of annual return: [{lower_bound_of_median_of_annual_return:.2f}, {upper_bound_of_median_of_annual_return:.2f}]")
 
-    # Compute worst-case annual return
-    worst_case_annual_return: stats.rv_continuous = stats.lognorm(s=annual_volatility, scale=lower_bound_of_median_of_annual_return)  # type: ignore
+    # Compute near-worst-case annual return
+    near_worst_case_annual_return: stats.rv_continuous = stats.lognorm(s=annual_volatility, scale=lower_bound_of_median_of_annual_return)  # type: ignore
 
     # Plot worst-case annual return
     x = np.linspace(0, 3, 1000)
-    y = worst_case_annual_return.cdf(x)
-    plt.plot(x, y, label="Worst-case Theoretical")
+    y = near_worst_case_annual_return.cdf(x)
+    plt.plot(x, y, label="Near-worst-case Theoretical")
     plt.hist(series_of_annual_return, bins=len(series_of_annual_return), density=True, cumulative=True, alpha=0.5, label="Empirical")
     plt.xlabel("Annual return")
     plt.xlim(0, 3)
