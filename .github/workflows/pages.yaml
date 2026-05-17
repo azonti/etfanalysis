@@ -29,7 +29,7 @@ jobs:
         run: bun install
 
       - name: Run retriever.ts
-        run: bun retriever.ts
+        run: PUPPETEER_DANGEROUS_NO_SANDBOX=true bun retriever.ts
 
       - name: Run workaroundApplier.ts
         run: bun workaroundApplier.ts
