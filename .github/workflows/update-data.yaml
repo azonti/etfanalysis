@@ -39,3 +39,7 @@ jobs:
         git add .
         git commit -m "update data" || echo "No changes to commit"
         git push
+
+  pages:
+    needs: update-data
+    uses: ./.github/workflows/pages.yaml
