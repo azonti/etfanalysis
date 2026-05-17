@@ -48,6 +48,12 @@ def main():
         type=str,
         default=None,
     )
+    parser.add_argument(
+        "--path-to-plot",
+        metavar="path/to/plot",
+        type=str,
+        default=None,
+    )
     args = parser.parse_args()
 
     # Read JSON
@@ -87,6 +93,22 @@ def main():
         series_of_daily_return = np.concatenate((series_of_daily_return, supplementary_series_of_daily_return))
         series_of_date = np.concatenate((series_of_date, supplementary_series_of_date))
 
+    # Check quality of series of daily return
+    series_of_abnormal_daily_return = series_of_daily_return[(series_of_daily_return < 0.6) | (series_of_daily_return > 1.8)]
+    series_of_abnormal_date = series_of_date[(series_of_daily_return < 0.6) | (series_of_daily_return > 1.8)]
+    whitelist_of_abnormal_date = np.array([
+        np.datetime64("2025-04-09"),
+        np.datetime64("2008-10-28"),
+        np.datetime64("2001-01-03"),
+        np.datetime64("2000-10-19"),
+        np.datetime64("1987-10-19"),
+        np.datetime64("1933-03-15"),
+    ])
+    series_of_abnormal_daily_return = series_of_abnormal_daily_return[~np.isin(series_of_abnormal_date, whitelist_of_abnormal_date)]
+    series_of_abnormal_date = series_of_abnormal_date[~np.isin(series_of_abnormal_date, whitelist_of_abnormal_date)]
+    for abnormal_daily_return, abnormal_date in zip(series_of_abnormal_daily_return, series_of_abnormal_date):
+        print(f"Abnormal daily return: {abnormal_daily_return:.2f} on {np.datetime_as_string(abnormal_date, unit='D')}")
+
     # Get last date
     if args.last_date is None:
         last_date = np.datetime64(series_of_date[0], "D")
@@ -120,32 +142,50 @@ def main():
     upper_bound_of_annual_volatility: np.float64 = np.sqrt((len(series_of_logarithm_of_annual_return) - 1) / stats.chi2.ppf(0.05, df=len(series_of_logarithm_of_annual_return)-1)) * annual_volatility  # type: ignore
     print(f"90% confidence interval of annual volatility: [{lower_bound_of_annual_volatility:.2f}, {upper_bound_of_annual_volatility:.2f}]")
 
-    # Compute 90% confidence interval of annual drift minus annual volatility squared halved
+    # Compute 80% confidence interval of annual drift minus annual volatility squared halved
     annual_drift_minus_annual_volatility_squared_halved: np.float64 = series_of_logarithm_of_annual_return.mean()
 
-    lower_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.95, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
-    upper_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.05, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
-    print(f"90% confidence interval of annual drift minus annual volatility squared halved: [{lower_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}, {upper_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}]")
+    lower_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.90, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
+    upper_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.10, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
+    print(f"80% confidence interval of annual drift minus annual volatility squared halved: [{lower_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}, {upper_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}]")
 
-    # Compute 90% confidence interval of median of annual return
+    # Compute 50% confidence interval of annual drift minus annual volatility squared halved
+    sublower_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.75, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
+    subupper_bound_of_annual_drift_minus_annual_volatility_squared_halved: np.float64 = annual_drift_minus_annual_volatility_squared_halved - stats.t.ppf(0.25, df=len(series_of_logarithm_of_annual_return)-1) * annual_volatility / np.sqrt(len(series_of_logarithm_of_annual_return))
+    print(f"50% confidence interval of annual drift minus annual volatility squared halved: [{sublower_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}, {subupper_bound_of_annual_drift_minus_annual_volatility_squared_halved:.2f}]")
+
+    # Compute 80% confidence interval of median of annual return
     lower_bound_of_median_of_annual_return: np.float64 = np.exp(lower_bound_of_annual_drift_minus_annual_volatility_squared_halved)
     upper_bound_of_median_of_annual_return: np.float64 = np.exp(upper_bound_of_annual_drift_minus_annual_volatility_squared_halved)
-    print(f"90% confidence interval of median of annual return: [{lower_bound_of_median_of_annual_return:.2f}, {upper_bound_of_median_of_annual_return:.2f}]")
+    print(f"80% confidence interval of median of annual return: [{lower_bound_of_median_of_annual_return:.2f}, {upper_bound_of_median_of_annual_return:.2f}]")
+
+    # Compute 50% confidence interval of median of annual return
+    sublower_bound_of_median_of_annual_return: np.float64 = np.exp(sublower_bound_of_annual_drift_minus_annual_volatility_squared_halved)
+    subupper_bound_of_median_of_annual_return: np.float64 = np.exp(subupper_bound_of_annual_drift_minus_annual_volatility_squared_halved)
+    print(f"50% confidence interval of median of annual return: [{sublower_bound_of_median_of_annual_return:.2f}, {subupper_bound_of_median_of_annual_return:.2f}]")
 
     # Compute near-worst-case annual return
     near_worst_case_annual_return: stats.rv_continuous = stats.lognorm(s=annual_volatility, scale=lower_bound_of_median_of_annual_return)  # type: ignore
 
+    # Compute subnear-worst-case annual return
+    subnear_worst_case_annual_return: stats.rv_continuous = stats.lognorm(s=annual_volatility, scale=sublower_bound_of_median_of_annual_return)  # type: ignore
+
     # Plot worst-case annual return
     x = np.linspace(0, 3, 1000)
-    y = near_worst_case_annual_return.cdf(x)
-    plt.plot(x, y, label="Near-worst-case Theoretical")
+    y1 = near_worst_case_annual_return.cdf(x)
+    plt.plot(x, y1, label="Near-worst-case Theoretical")
+    y2 = subnear_worst_case_annual_return.cdf(x)
+    plt.plot(x, y2, label="Subnear-worst-case Theoretical")
     plt.hist(series_of_annual_return, bins=len(series_of_annual_return), density=True, cumulative=True, alpha=0.5, label="Empirical")
     plt.xlabel("Annual return")
     plt.xlim(0, 3)
     plt.ylabel("Cumulative probability")
     plt.ylim(0, 1)
     plt.legend()
-    plt.show()
+    if args.path_to_plot is not None:
+        plt.savefig(args.path_to_plot)
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":
