@@ -339,7 +339,7 @@ await Promise.all([
   }),
 ])
 
-await fs.unlink('public/index.html');
+await fs.rm('public/index.html', { force: true });
 const indexHTML = createWriteStream('public/index.html', { flags: 'a', encoding: 'utf8' });
 indexHTML.write(`
 <html>
