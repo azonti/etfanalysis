@@ -1,9 +1,9 @@
 name: Deploy site to Pages
 
 on:
-  schedule:
-  - cron: '0 0 * * 0'
-    timezone: 'Asia/Tokyo'
+  push:
+    branches:
+    - main
   workflow_dispatch:
 
 permissions:
@@ -16,52 +16,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  update-data:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run retriever.ts
-        run: PUPPETEER_DANGEROUS_NO_SANDBOX=true bun retriever.ts
-
-      - name: Run workaroundApplier.ts
-        run: bun workaroundApplier.ts
-
-      - name: Commit and push changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "28558912+github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "update data" || echo "No changes to commit"
-          git push origin main
-
   build:
-    needs: update-data
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+    - name: Checkout repository
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
-      - name: Install dependencies
-        run: bun install
+    - name: Install dependencies
+      run: bun install
 
-      - name: Run publisher.ts
-        run: bun publisher.ts
+    - name: Run publisher.ts
+      run: bun publisher.ts
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
-        with:
-          path: public
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+      with:
+        path: public
 
   deploy:
     environment:
@@ -70,6 +43,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

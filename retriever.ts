@@ -237,7 +237,7 @@ for (const config of configs) {
     await delay(1000);
     await page.click('[data-testid="history-date-picker"] button[value="MAX"]');
   });
-  await delay(60000);
+  await delay(30000);
 
   console.debug('Extracting data from the page for:', config.name);
   const data = await page.$eval(
