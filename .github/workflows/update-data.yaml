@@ -45,7 +45,7 @@ jobs:
         git push
     - name: Get ref
       id: get-ref
-      run: echo "ref=$(git rev-parse --abrev-ref HEAD)" >> $GITHUB_OUTPUT
+      run: echo "ref=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
 
   pages:
     needs: update-data
