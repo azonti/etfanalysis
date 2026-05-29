@@ -18,6 +18,8 @@ concurrency:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.get-ref.outputs.ref }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
@@ -41,7 +43,12 @@ jobs:
         git add .
         git commit -m "update data" || echo "No changes to commit"
         git push
+    - name: Get ref
+      id: get-ref
+      run: echo "ref=$(git rev-parse --abrev-ref HEAD)" >> $GITHUB_OUTPUT
 
   pages:
     needs: update-data
     uses: ./.github/workflows/pages.yaml
+    with:
+      ref: ${{ needs.update-data.outputs.ref }}
