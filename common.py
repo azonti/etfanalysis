@@ -6,6 +6,9 @@ import numpy as np
 import numpy.typing as npt
 
 
+sqrt_252: np.float64 = np.sqrt(252)
+
+
 def common() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.datetime64], argparse.Namespace]:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -74,8 +77,8 @@ def common() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.datetime64], argpa
         supplementary_series_of_date: npt.NDArray[np.datetime64] = np.array([dt.datetime.strptime(supplementary_row[0], "%b %d, %Y") for supplementary_row in supplementary_table], dtype="datetime64[D]")
 
         # Filter supplementary series of price and date
-        supplementary_series_of_price = supplementary_series_of_price[supplementary_series_of_date < series_of_date[-1]]
-        supplementary_series_of_date = supplementary_series_of_date[supplementary_series_of_date < series_of_date[-1]]
+        supplementary_series_of_price: npt.NDArray[np.float64] = supplementary_series_of_price[supplementary_series_of_date < series_of_date[-1]]
+        supplementary_series_of_date: npt.NDArray[np.float64] = supplementary_series_of_date[supplementary_series_of_date < series_of_date[-1]]
 
         # Get supplementary leverage
         supplementary_leverage = np.float64(args.supplementary_leverage)

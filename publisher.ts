@@ -205,14 +205,10 @@ interface AnnualReturnPyOutput {
   firstDate: string;
   lowerBoundOfAnnualVolatility: number;
   upperBoundOfAnnualVolatility: number;
-  lowerBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved: number;
-  upperBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved: number;
-  sublowerBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved: number;
-  subupperBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved: number;
-  lowerBoundOfMedianOfAnnualReturn: number;
-  upperBoundOfMedianOfAnnualReturn: number;
-  sublowerBoundOfMedianOfAnnualReturn: number;
-  subupperBoundOfMedianOfAnnualReturn: number;
+  lowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
+  upperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
+  sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
+  subupperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
 }
 
 function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
@@ -247,44 +243,24 @@ function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
           output.upperBoundOfAnnualVolatility = parseFloat(match[2]);
         }
         break;
-      case line.startsWith('80% confidence interval of annual drift minus annual volatility squared halved:'):
+      case line.startsWith('80% confidence interval of annual drift minus halved squared annual volatility:'):
         {
-          const match = /80% confidence interval of annual drift minus annual volatility squared halved: \[(.*), (.*)\]/.exec(line);
+          const match = /80% confidence interval of annual drift minus halved squared annual volatility: \[(.*), (.*)\]/.exec(line);
           if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse annual drift minus annual volatility squared halved confidence interval from line: ${line}`);
+            throw new Error(`Failed to parse annual drift minus halved squared annual volatility confidence interval from line: ${line}`);
           }
-          output.lowerBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved = parseFloat(match[1]);
-          output.upperBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved = parseFloat(match[2]);
+          output.lowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility = parseFloat(match[1]);
+          output.upperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility = parseFloat(match[2]);
         }
         break;
-      case line.startsWith('50% confidence interval of annual drift minus annual volatility squared halved:'):
+      case line.startsWith('50% confidence interval of annual drift minus halved squared annual volatility:'):
         {
-          const match = /50% confidence interval of annual drift minus annual volatility squared halved: \[(.*), (.*)\]/.exec(line);
+          const match = /50% confidence interval of annual drift minus halved squared annual volatility: \[(.*), (.*)\]/.exec(line);
           if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse annual drift minus annual volatility squared halved confidence interval from line: ${line}`);
+            throw new Error(`Failed to parse annual drift minus halved squared annual volatility confidence interval from line: ${line}`);
           }
-          output.sublowerBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved = parseFloat(match[1]);
-          output.subupperBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved = parseFloat(match[2]);
-        }
-        break;
-      case line.startsWith('80% confidence interval of median of annual return:'):
-        {
-          const match = /80% confidence interval of median of annual return: \[(.*), (.*)\]/.exec(line);
-          if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse median of annual return confidence interval from line: ${line}`);
-          }
-          output.lowerBoundOfMedianOfAnnualReturn = parseFloat(match[1]);
-          output.upperBoundOfMedianOfAnnualReturn = parseFloat(match[2]);
-        }
-        break;
-      case line.startsWith('50% confidence interval of median of annual return:'):
-        {
-          const match = /50% confidence interval of median of annual return: \[(.*), (.*)\]/.exec(line);
-          if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse median of annual return confidence interval from line: ${line}`);
-          }
-          output.sublowerBoundOfMedianOfAnnualReturn = parseFloat(match[1]);
-          output.subupperBoundOfMedianOfAnnualReturn = parseFloat(match[2]);
+          output.sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility = parseFloat(match[1]);
+          output.subupperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility = parseFloat(match[2]);
         }
         break;
       default:
@@ -303,17 +279,11 @@ function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
   if (output.lowerBoundOfAnnualVolatility === undefined || output.upperBoundOfAnnualVolatility === undefined) {
     throw new Error('Missing confidence interval of annual volatility in annual_return.py stdout');
   }
-  if (output.lowerBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved === undefined || output.upperBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved === undefined) {
-    throw new Error('Missing confidence interval of annual drift minus annual volatility squared halved in annual_return.py stdout');
+  if (output.lowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility === undefined || output.upperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility === undefined) {
+    throw new Error('Missing confidence interval of annual drift minus halved squared annual volatility in annual_return.py stdout');
   }
-  if (output.sublowerBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved === undefined || output.subupperBoundOfAnnualDriftMinusAnnualVolatilitySquaredHalved === undefined) {
-    throw new Error('Missing confidence interval of annual drift minus annual volatility squared halved in annual_return.py stdout');
-  }
-  if (output.lowerBoundOfMedianOfAnnualReturn === undefined || output.upperBoundOfMedianOfAnnualReturn === undefined) {
-    throw new Error('Missing confidence interval of median of annual return in annual_return.py stdout');
-  }
-  if (output.sublowerBoundOfMedianOfAnnualReturn === undefined || output.subupperBoundOfMedianOfAnnualReturn === undefined) {
-    throw new Error('Missing confidence interval of median of annual return in annual_return.py stdout');
+  if (output.sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility === undefined || output.subupperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility === undefined) {
+    throw new Error('Missing confidence interval of annual drift minus halved squared annual volatility in annual_return.py stdout');
   }
   return output as AnnualReturnPyOutput;
 }
@@ -376,8 +346,8 @@ for (const config of configs) {
           <td>${output.lastDate}</td>
           <td>${output.firstDate}</td>
           <td>[${output.lowerBoundOfAnnualVolatility.toFixed(2)}, ${output.upperBoundOfAnnualVolatility.toFixed(2)}]</td>
-          <td>${output.lowerBoundOfMedianOfAnnualReturn > 1 ? '&#9989;' : '&#10060;'}</td>
-          <td>${output.sublowerBoundOfMedianOfAnnualReturn > 1 ? '&#9989;' : '&#10060;'}</td>
+          <td>${output.lowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility > 0 ? '&#9989;' : '&#10060;'}</td>
+          <td>${output.sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility > 0 ? '&#9989;' : '&#10060;'}</td>
           <td><a href="${md5Hash(`${config.name} / annual_return.py`)}.txt">Stdout</a></td>
           <td><a href="${md5Hash(`${config.name} / annual_return.py`)}.png">Plot</a></td>
         </tr>
