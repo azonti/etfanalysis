@@ -2,6 +2,8 @@ import util from 'node:util';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
 import { createWriteStream } from 'node:fs';
 
 interface Config {
@@ -393,12 +395,18 @@ await fs.mkdir('public', { recursive: true });
 await Promise.all([
   ...configs.map(async config => {
     console.debug('Running annual_return_v2.py for:', config.name);
+    const mplConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), `matplotlib-${md5Hash(`${config.name} / annual_return_v2.py`)}-`));
     const { stdout, stderr } = await util.promisify(execFile)('./annual_return_v2.py', [
       ...['--path-to-json', config.pathToJSON],
       ...(config.pathToSupplementaryJSON ? ['--path-to-supplementary-json', config.pathToSupplementaryJSON] : []),
       ...(config.supplementaryLeverage ? ['--supplementary-leverage', config.supplementaryLeverage.toString()] : []),
       ...['--path-to-plot', `public/${md5Hash(`${config.name} / annual_return_v2.py`)}.png`],
-    ])
+    ], {
+      env: {
+        ...process.env,
+        MPLCONFIGDIR: mplConfigDir,
+      },
+    });
     if (stderr.trim().split('\n').some(line => !line.trim().endsWith('it/s]'))) {
       throw new Error(stderr);
     }
@@ -407,12 +415,18 @@ await Promise.all([
   }),
   ...configs.map(async config => {
     console.debug('Running annual_return.py for:', config.name);
+    const mplConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), `matplotlib-${md5Hash(`${config.name} / annual_return.py`)}-`));
     const { stdout, stderr } = await util.promisify(execFile)('./annual_return.py', [
       ...['--path-to-json', config.pathToJSON],
       ...(config.pathToSupplementaryJSON ? ['--path-to-supplementary-json', config.pathToSupplementaryJSON] : []),
       ...(config.supplementaryLeverage ? ['--supplementary-leverage', config.supplementaryLeverage.toString()] : []),
       ...['--path-to-plot', `public/${md5Hash(`${config.name} / annual_return.py`)}.png`],
-    ])
+    ], {
+      env: {
+        ...process.env,
+        MPLCONFIGDIR: mplConfigDir,
+      },
+    });
     if (stderr) {
       throw new Error(stderr);
     }
