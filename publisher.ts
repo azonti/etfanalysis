@@ -205,6 +205,7 @@ interface AnnualReturnV2PyOutput {
   hasAbnormalDailyReturn?: boolean;
   lastDate: string;
   firstDate: string;
+  currentVar0: number[];
   lowerBoundOfAnnualVolatility: number;
   upperBoundOfAnnualVolatility: number;
   lowerBoundOfMeanOfLogAnnualReturn: number;
@@ -238,6 +239,13 @@ function annualReturnV2PyStdoutParser(stdout: string): AnnualReturnV2PyOutput {
       case line.startsWith('Fixed parameters:'):
         break;
       case line.startsWith('Current parameters:'):
+        {
+          const match = /Current parameters: var_0=(.*), alpha=(.*), beta=(.*), gamma=(.*)/.exec(line);
+          if (!match?.[1] || !match[2] || !match[3] || !match[4]) {
+            throw new Error(`Failed to parse current parameters from line: ${line}`);
+          }
+          output.currentVar0 = (output.currentVar0 ?? []).concat(parseFloat(match[1]));
+        }
         break;
       case line.startsWith('Current loss:'):
         break;
@@ -459,6 +467,7 @@ indexHTML.write(`
           <th scope="col">Normality</th>
           <th scope="col">Last Date</th>
           <th scope="col">First Date</th>
+          <th scope="col">var_0 Ratio</th>
           <th scope="col">90% CI of Annual Volatility</th>
           <th scope="col">Test w/ α = 10%</th>
           <th scope="col">Test w/ α = 25%</th>
@@ -479,6 +488,7 @@ for (const config of configs) {
           <td>${output.hasAbnormalDailyReturn ? '&#10060;' : '&#9989;'}</td>
           <td>${output.lastDate}</td>
           <td>${output.firstDate}</td>
+          <td>${output.currentVar0.length >= 2 ? ((output.currentVar0[1] ?? 0) / (output.currentVar0[0] ?? 0)).toFixed(2) : 'N/A'}</td>
           <td>[${output.lowerBoundOfAnnualVolatility.toFixed(2)}, ${output.upperBoundOfAnnualVolatility.toFixed(2)}]</td>
           <td>${output.lowerBoundOfMeanOfLogAnnualReturn > 0 ? '&#9989;' : '&#10060;'}</td>
           <td>${output.sublowerBoundOfMeanOfLogAnnualReturn > 0 ? '&#9989;' : '&#10060;'}</td>
