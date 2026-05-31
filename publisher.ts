@@ -407,7 +407,12 @@ await Promise.all([
         MPLCONFIGDIR: mplConfigDir,
       },
     });
-    if (stderr.trim().split('\n').some(line => line.trim() && !line.trim().endsWith('it/s]') && line.trim() !== 'Matplotlib is building the font cache; this may take a moment.')) {
+    if (stderr.trim().split('\n').some(line =>
+      line.trim() &&
+      !line.trim().endsWith('it/s]') &&
+      !line.trim().endsWith('s/it]') &&
+      line.trim() !== 'Matplotlib is building the font cache; this may take a moment.'
+    )) {
       throw new Error(stderr);
     }
     await fs.writeFile(`public/${md5Hash(`${config.name} / annual_return_v2.py`)}.txt`, stdout);
@@ -427,7 +432,10 @@ await Promise.all([
         MPLCONFIGDIR: mplConfigDir,
       },
     });
-    if (stderr.trim().split('\n').some(line => line.trim() && line.trim() !== 'Matplotlib is building the font cache; this may take a moment.')) {
+    if (stderr.trim().split('\n').some(line =>
+      line.trim() &&
+      line.trim() !== 'Matplotlib is building the font cache; this may take a moment.'
+    )) {
       throw new Error(stderr);
     }
     await fs.writeFile(`public/${md5Hash(`${config.name} / annual_return.py`)}.txt`, stdout);
