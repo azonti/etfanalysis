@@ -14,7 +14,6 @@ from common import common, fit_model, inv_softplus, log_pdf_normal
 
 @dataclass(frozen=True)
 class LogDailyReturnParams:
-    var_0: torch.Tensor
     alpha: torch.Tensor
     beta: torch.Tensor
     gamma: torch.Tensor
@@ -39,7 +38,7 @@ class LogDailyReturnModel(nn.Module):
             raise ValueError(f"Invalid parameters: alpha + beta must be less than 1, but got alpha={alpha}, beta={beta}")
 
         self.mu = torch.tensor(mu, dtype=dtype)
-        self.unconstrained_var_0 = nn.Parameter(inv_softplus(torch.tensor(var_0, dtype=dtype)))
+        self.var_0 = torch.tensor(var_0, dtype=dtype)
         gamma = 1 - alpha - beta
         self.unconstrained_alpha = nn.Parameter(torch.log(torch.tensor(alpha / gamma, dtype=dtype)))
         self.unconstrained_beta = nn.Parameter(torch.log(torch.tensor(beta / gamma, dtype=dtype)))
@@ -47,12 +46,10 @@ class LogDailyReturnModel(nn.Module):
         self.dtype = dtype
 
     def _params(self) -> LogDailyReturnParams:
-        var_0 = F.softplus(self.unconstrained_var_0)
-        zero = self.unconstrained_var_0.new_zeros(())
+        zero = self.mu.new_zeros(())
         alpha, beta, gamma = F.softmax(torch.stack([self.unconstrained_alpha, self.unconstrained_beta, zero]), dim=0)
 
         return LogDailyReturnParams(
-            var_0=var_0,
             alpha=alpha,
             beta=beta,
             gamma=gamma,
@@ -60,14 +57,14 @@ class LogDailyReturnModel(nn.Module):
 
     def print_params(self) -> None:
         params = self._params()
-        print(f"Fixed parameters: mu={self.mu.item():.6f}")
-        print(f"Current parameters: var_0={params.var_0.item():.6f}, alpha={params.alpha.item():.6f}, beta={params.beta.item():.6f}, gamma={params.gamma.item():.6f}")
+        print(f"Fixed parameters: mu={self.mu.item():.6f}, var_0={self.var_0.item():.6f}")
+        print(f"Current parameters: alpha={params.alpha.item():.6f}, beta={params.beta.item():.6f}, gamma={params.gamma.item():.6f}")
 
     def _negative_log_likelihood(self, x: torch.Tensor) -> torch.Tensor:
         params = self._params()
-        omega = params.var_0 * params.gamma
-        log_likelihood = params.var_0.new_zeros(())
-        var_i = params.var_0
+        omega = self.var_0 * params.gamma
+        log_likelihood = self.mu.new_zeros(())
+        var_i = self.var_0
         for i in range(x.shape[0]):
             log_likelihood += log_pdf_normal(x[i], self.mu, var_i)
             var_i = omega + params.alpha * (x[i] - self.mu).square() + params.beta * var_i
@@ -82,9 +79,9 @@ class LogDailyReturnModel(nn.Module):
     def sample_log_annual_return(self, num_samples: int) -> torch.Tensor:
         with torch.no_grad():
             params = self._params()
-            omega = params.var_0 * params.gamma
-            samples = params.var_0.new_zeros((num_samples))
-            var_i = params.var_0.repeat(num_samples)
+            omega = self.var_0 * params.gamma
+            samples = self.mu.new_zeros((num_samples,))
+            var_i = self.var_0.repeat((num_samples,))
             for _ in range(252):
                 x_i = torch.normal(self.mu, torch.sqrt(var_i))
                 samples += x_i
