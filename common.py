@@ -1,9 +1,36 @@
 import argparse
 import datetime as dt
 import json
+import math
 
 import numpy as np
 import numpy.typing as npt
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from tqdm import tqdm
+
+
+def inv_softplus(x: torch.Tensor) -> torch.Tensor:
+    return x + torch.log(-torch.expm1(-x))
+
+
+log_pi_doubled = math.log(2 * math.pi)
+
+
+def log_pdf_normal(x: torch.Tensor, mu: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
+    return -0.5 * (log_pi_doubled + torch.log(var) + (x - mu).square() / var)
+
+
+def fit_model(model: nn.Module, data: torch.Tensor, lr: float, num_iterations: int) -> None:
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+
+    for i in tqdm(range(num_iterations)):
+        optimizer.zero_grad()
+        loss: torch.Tensor = model(data)
+        loss.backward()
+        optimizer.step()
+        print(f"Current loss: {loss.item():.6f}")
 
 
 sqrt_252: np.float64 = np.sqrt(252)

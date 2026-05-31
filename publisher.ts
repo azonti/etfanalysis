@@ -197,6 +197,103 @@ function md5Hash(data: string): string {
   return hash;
 }
 
+interface AnnualReturnV2PyOutput {
+  leverage: number;
+  supplementaryLeverage?: number;
+  hasAbnormalDailyReturn?: boolean;
+  lastDate: string;
+  firstDate: string;
+  lowerBoundOfAnnualVolatility: number;
+  upperBoundOfAnnualVolatility: number;
+  lowerBoundOfMeanOfLogAnnualReturn: number;
+  upperBoundOfMeanOfLogAnnualReturn: number;
+  sublowerBoundOfMeanOfLogAnnualReturn: number;
+  subupperBoundOfMeanOfLogAnnualReturn: number;
+}
+
+function annualReturnV2PyStdoutParser(stdout: string): AnnualReturnV2PyOutput {
+  const lines = stdout.trim().split('\n');
+  const output: Partial<AnnualReturnV2PyOutput> = {};
+  for (const line of lines) {
+    switch (true) {
+      case !line.trim():
+        break;
+      case line.startsWith('Leverage:'):
+        output.leverage = parseFloat(line.replace('Leverage:', '').trim());
+        break;
+      case line.startsWith('Supplementary leverage:'):
+        output.supplementaryLeverage = parseFloat(line.replace('Supplementary leverage:', '').trim());
+        break;
+      case line.startsWith('Abnormal daily return:'):
+        output.hasAbnormalDailyReturn = true;
+        break;
+      case line.startsWith('Last date:'):
+        output.lastDate = line.replace('Last date:', '').trim();
+        break;
+      case line.startsWith('First date:'):
+        output.firstDate = line.replace('First date:', '').trim();
+        break;
+      case line.startsWith('Fixed parameters:'):
+        break;
+      case line.startsWith('Current parameters:'):
+        break;
+      case line.startsWith('Current loss:'):
+        break;
+      case line.startsWith('90% confidence interval of annual volatility:'):
+        {
+          const match = /90% confidence interval of annual volatility: \[(.*), (.*)\]/.exec(line);
+          if (!match?.[1] || !match[2]) {
+            throw new Error(`Failed to parse annual volatility confidence interval from line: ${line}`);
+          }
+          output.lowerBoundOfAnnualVolatility = parseFloat(match[1]);
+          output.upperBoundOfAnnualVolatility = parseFloat(match[2]);
+        }
+        break;
+      case line.startsWith('80% confidence interval of mean of log annual return:'):
+        {
+          const match = /80% confidence interval of mean of log annual return: \[(.*), (.*)\]/.exec(line);
+          if (!match?.[1] || !match[2]) {
+            throw new Error(`Failed to parse mean of log annual return confidence interval from line: ${line}`);
+          }
+          output.lowerBoundOfMeanOfLogAnnualReturn = parseFloat(match[1]);
+          output.upperBoundOfMeanOfLogAnnualReturn = parseFloat(match[2]);
+        }
+        break;
+      case line.startsWith('50% confidence interval of mean of log annual return:'):
+        {
+          const match = /50% confidence interval of mean of log annual return: \[(.*), (.*)\]/.exec(line);
+          if (!match?.[1] || !match[2]) {
+            throw new Error(`Failed to parse mean of log annual return confidence interval from line: ${line}`);
+          }
+          output.sublowerBoundOfMeanOfLogAnnualReturn = parseFloat(match[1]);
+          output.subupperBoundOfMeanOfLogAnnualReturn = parseFloat(match[2]);
+        }
+        break;
+      default:
+        throw new Error(`Unexpected line in annual_return_v2.py stdout: ${line}`);
+    }
+  }
+  if (output.leverage === undefined) {
+    throw new Error('Missing leverage in annual_return_v2.py stdout');
+  }
+  if (output.lastDate === undefined) {
+    throw new Error('Missing last date in annual_return_v2.py stdout');
+  }
+  if (output.firstDate === undefined) {
+    throw new Error('Missing first date in annual_return_v2.py stdout');
+  }
+  if (output.lowerBoundOfAnnualVolatility === undefined || output.upperBoundOfAnnualVolatility === undefined) {
+    throw new Error('Missing confidence interval of annual volatility in annual_return_v2.py stdout');
+  }
+  if (output.lowerBoundOfMeanOfLogAnnualReturn === undefined || output.upperBoundOfMeanOfLogAnnualReturn === undefined) {
+    throw new Error('Missing confidence interval of mean of log annual return in annual_return_v2.py stdout');
+  }
+  if (output.sublowerBoundOfMeanOfLogAnnualReturn === undefined || output.subupperBoundOfMeanOfLogAnnualReturn === undefined) {
+    throw new Error('Missing confidence interval of mean of log annual return in annual_return_v2.py stdout');
+  }
+  return output as AnnualReturnV2PyOutput;
+}
+
 interface AnnualReturnPyOutput {
   leverage: number;
   supplementaryLeverage?: number;
@@ -288,11 +385,26 @@ function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
   return output as AnnualReturnPyOutput;
 }
 
+const annualReturnV2PyOutputs = new Map<string, AnnualReturnV2PyOutput>();
 const annualReturnPyOutputs = new Map<string, AnnualReturnPyOutput>();
 
 await fs.mkdir('public', { recursive: true });
 
 await Promise.all([
+  ...configs.map(async config => {
+    console.debug('Running annual_return_v2.py for:', config.name);
+    const { stdout, stderr } = await util.promisify(execFile)('./annual_return_v2.py', [
+      ...['--path-to-json', config.pathToJSON],
+      ...(config.pathToSupplementaryJSON ? ['--path-to-supplementary-json', config.pathToSupplementaryJSON] : []),
+      ...(config.supplementaryLeverage ? ['--supplementary-leverage', config.supplementaryLeverage.toString()] : []),
+      ...['--path-to-plot', `public/${md5Hash(`${config.name} / annual_return_v2.py`)}.png`],
+    ])
+    if (stderr.trim().split('\n').some(line => !line.trim().endsWith('it/s]'))) {
+      throw new Error(stderr);
+    }
+    await fs.writeFile(`public/${md5Hash(`${config.name} / annual_return_v2.py`)}.txt`, stdout);
+    annualReturnV2PyOutputs.set(config.name, annualReturnV2PyStdoutParser(stdout));
+  }),
   ...configs.map(async config => {
     console.debug('Running annual_return.py for:', config.name);
     const { stdout, stderr } = await util.promisify(execFile)('./annual_return.py', [
@@ -317,6 +429,45 @@ indexHTML.write(`
     <title>ETF Analysis</title>
   </head>
   <body>
+    <h2>Annual Return Analysis (V2)</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Normality</th>
+          <th scope="col">Last Date</th>
+          <th scope="col">First Date</th>
+          <th scope="col">90% CI of Annual Volatility</th>
+          <th scope="col">Test w/ α = 10%</th>
+          <th scope="col">Test w/ α = 25%</th>
+          <th scope="col">Stdout</th>
+          <th scope="col">Plot</th>
+        </tr>
+      </thead>
+      <tbody>
+`);
+for (const config of configs) {
+  const output = annualReturnV2PyOutputs.get(config.name);
+  if (!output) {
+    throw new Error(`Missing annual_return_v2.py output for ${config.name}`);
+  }
+  indexHTML.write(`
+        <tr>
+          <th scope="row">${config.name}</th>
+          <td>${output.hasAbnormalDailyReturn ? '&#10060;' : '&#9989;'}</td>
+          <td>${output.lastDate}</td>
+          <td>${output.firstDate}</td>
+          <td>[${output.lowerBoundOfAnnualVolatility.toFixed(2)}, ${output.upperBoundOfAnnualVolatility.toFixed(2)}]</td>
+          <td>${output.lowerBoundOfMeanOfLogAnnualReturn > 0 ? '&#9989;' : '&#10060;'}</td>
+          <td>${output.sublowerBoundOfMeanOfLogAnnualReturn > 0 ? '&#9989;' : '&#10060;'}</td>
+          <td><a href="${md5Hash(`${config.name} / annual_return_v2.py`)}.txt">Stdout</a></td>
+          <td><a href="${md5Hash(`${config.name} / annual_return_v2.py`)}.png">Plot</a></td>
+        </tr>
+  `);
+}
+indexHTML.write(`
+      </tbody>
+    </table>
     <h2>Annual Return Analysis</h2>
     <table border="1">
       <thead>
