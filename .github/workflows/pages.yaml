@@ -71,7 +71,7 @@ jobs:
     - name: Run publisher.ts
       env:
         CONFIG_NAME: ${{ matrix.config_name }}
-      run: bun publisher.ts "$CONFIG_NAME"
+      run: bun publisher-runner.ts "$CONFIG_NAME"
 
     - name: Upload artifact
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
