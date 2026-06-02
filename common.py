@@ -15,11 +15,7 @@ def inv_softplus(x: torch.Tensor) -> torch.Tensor:
     return x + torch.log(-torch.expm1(-x))
 
 
-log_pi_doubled = math.log(2 * math.pi)
-
-
-def log_pdf_normal(x: torch.Tensor, mu: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
-    return -0.5 * (log_pi_doubled + torch.log(var) + (x - mu).square() / var)
+log_doubled_pi = math.log(2 * math.pi)
 
 
 def fit_model(model: nn.Module, data: torch.Tensor, lr: float, num_iterations: int) -> None:

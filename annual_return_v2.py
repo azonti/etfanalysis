@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from common import common, fit_model, inv_softplus, log_pdf_normal
+from common import common, fit_model, log_doubled_pi
 
 
 @dataclass(frozen=True)
@@ -37,8 +37,8 @@ class LogDailyReturnModel(nn.Module):
         if alpha + beta >= 1:
             raise ValueError(f"Invalid parameters: alpha + beta must be less than 1, but got alpha={alpha}, beta={beta}")
 
-        self.mu = torch.tensor(mu, dtype=dtype)
-        self.var_0 = torch.tensor(var_0, dtype=dtype)
+        self.register_buffer("mu", torch.tensor(mu, dtype=dtype))
+        self.register_buffer("var_0", torch.tensor(var_0, dtype=dtype))
         gamma = 1 - alpha - beta
         self.unconstrained_alpha = nn.Parameter(torch.log(torch.tensor(alpha / gamma, dtype=dtype)))
         self.unconstrained_beta = nn.Parameter(torch.log(torch.tensor(beta / gamma, dtype=dtype)))
@@ -63,16 +63,21 @@ class LogDailyReturnModel(nn.Module):
     def _negative_log_likelihood(self, x: torch.Tensor) -> torch.Tensor:
         params = self._params()
         omega = self.var_0 * params.gamma
-        log_likelihood = self.mu.new_zeros(())
-        var_i = self.var_0
+        squared_z = (x - self.mu).square()
+        var: list[torch.Tensor] = []
         for i in range(x.shape[0]):
-            log_likelihood += log_pdf_normal(x[i], self.mu, var_i)
-            var_i = omega + params.alpha * (x[i] - self.mu).square() + params.beta * var_i
-        return -log_likelihood
+            if i == 0:
+                var.append(self.var_0)
+            else:
+                var.append(omega + params.alpha * squared_z[i-1] + params.beta * var[i-1])
+        var: torch.Tensor = torch.stack(var)
+        return 0.5 * (log_doubled_pi + torch.log(var) + squared_z / var).sum()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dtype != self.dtype:
             raise ValueError(f"Invalid input: expected dtype={self.dtype}, but got dtype={x.dtype}")
+        if x.ndim != 1:
+            raise ValueError(f"Invalid input: expected 1-dimensional input, but got {x.ndim}-dimensional input")
 
         return self._negative_log_likelihood(x)
 
