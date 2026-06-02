@@ -68,7 +68,7 @@ jobs:
     - name: Install Python dependencies
       run: pip install -r requirements.txt
 
-    - name: Run publisher.ts
+    - name: Run publisher-runner.ts
       env:
         CONFIG_NAME: ${{ matrix.config_name }}
       run: bun publisher-runner.ts "$CONFIG_NAME"

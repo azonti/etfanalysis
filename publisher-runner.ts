@@ -13,6 +13,8 @@ if (!selectedConfig) {
   throw new Error(`Config with name "${process.argv[2]}" not found.`);
 }
 
+await fs.mkdir('public', { recursive: true });
+
 await Promise.all([
   (async () => {
     console.debug('Running annual_return_v2.py for:', selectedConfig.name);

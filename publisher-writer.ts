@@ -223,8 +223,6 @@ function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
 const annualReturnV2PyOutputs = new Map<string, AnnualReturnV2PyOutput>();
 const annualReturnPyOutputs = new Map<string, AnnualReturnPyOutput>();
 
-await fs.mkdir('public', { recursive: true });
-
 await Promise.all([
   ...configs.map(async config => {
     const stdout = await fs.readFile(`public/${md5Hash(`${config.name} / annual_return_v2.py`)}.txt`, { encoding: 'utf8' });
