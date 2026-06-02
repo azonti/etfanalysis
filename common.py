@@ -89,7 +89,7 @@ def common() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.datetime64], argpa
     print(f"Leverage: {leverage}")
 
     # Compute series of daily return
-    series_of_daily_return: npt.NDArray[np.float64] = (series_of_price[:-1] / series_of_price[1:] - 1) * leverage + 1
+    series_of_daily_return = (series_of_price[:-1] / series_of_price[1:] - 1) * leverage + 1
     series_of_date = series_of_date[:-1]
 
     if args.path_to_supplementary_json is not None:
@@ -101,14 +101,14 @@ def common() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.datetime64], argpa
 
         # Filter supplementary series of price and date
         supplementary_series_of_price: npt.NDArray[np.float64] = supplementary_series_of_price[supplementary_series_of_date < series_of_date[-1]]
-        supplementary_series_of_date: npt.NDArray[np.float64] = supplementary_series_of_date[supplementary_series_of_date < series_of_date[-1]]
+        supplementary_series_of_date: npt.NDArray[np.datetime64] = supplementary_series_of_date[supplementary_series_of_date < series_of_date[-1]]
 
         # Get supplementary leverage
         supplementary_leverage = np.float64(args.supplementary_leverage)
         print(f"Supplementary leverage: {supplementary_leverage}")
 
         # Compute supplementary series of daily return
-        supplementary_series_of_daily_return: npt.NDArray[np.float64] = (supplementary_series_of_price[:-1] / supplementary_series_of_price[1:] - 1) * supplementary_leverage + 1
+        supplementary_series_of_daily_return = (supplementary_series_of_price[:-1] / supplementary_series_of_price[1:] - 1) * supplementary_leverage + 1
         supplementary_series_of_date = supplementary_series_of_date[:-1]
 
         # Merge series of daily return and supplementary series of daily return

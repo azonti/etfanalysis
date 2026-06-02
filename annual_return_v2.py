@@ -5,18 +5,22 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import scipy.stats as stats
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from common import common, fit_model, log_doubled_pi
+from common import common, fit_model, inv_softplus, log_doubled_pi
 
 
 @dataclass(frozen=True)
 class LogDailyReturnParams:
+    mu: torch.Tensor
+    var_0: torch.Tensor
     alpha: torch.Tensor
     beta: torch.Tensor
     gamma: torch.Tensor
+    omega: torch.Tensor
 
 
 class LogDailyReturnModel(nn.Module):
@@ -30,46 +34,57 @@ class LogDailyReturnModel(nn.Module):
     ) -> None:
         super().__init__()
 
+        gamma = 1 - alpha - beta
+
         if var_0 <= 0:
             raise ValueError(f"Invalid parameters: var_0 must be positive, but got var_0={var_0}")
         if alpha <= 0 or beta <= 0:
             raise ValueError(f"Invalid parameters: alpha and beta must be positive, but got alpha={alpha}, beta={beta}")
-        if alpha + beta >= 1:
+        if gamma <= 0:
             raise ValueError(f"Invalid parameters: alpha + beta must be less than 1, but got alpha={alpha}, beta={beta}")
 
         self.register_buffer("mu", torch.tensor(mu, dtype=dtype))
-        self.register_buffer("var_0", torch.tensor(var_0, dtype=dtype))
-        gamma = 1 - alpha - beta
+        self.unconstrained_var_0 = nn.Parameter(inv_softplus(torch.tensor(var_0, dtype=dtype)))
         self.unconstrained_alpha = nn.Parameter(torch.log(torch.tensor(alpha / gamma, dtype=dtype)))
         self.unconstrained_beta = nn.Parameter(torch.log(torch.tensor(beta / gamma, dtype=dtype)))
 
         self.dtype = dtype
 
-    def _params(self) -> LogDailyReturnParams:
-        zero = self.mu.new_zeros(())
-        alpha, beta, gamma = F.softmax(torch.stack([self.unconstrained_alpha, self.unconstrained_beta, zero]), dim=0)
-
+    def _params(
+        self,
+        unconstrained_var_0: torch.Tensor,
+        unconstrained_alpha: torch.Tensor,
+        unconstrained_beta: torch.Tensor,
+    ) -> LogDailyReturnParams:
+        var_0 = F.softplus(unconstrained_var_0)
+        zero: torch.Tensor = unconstrained_var_0.new_zeros(())
+        alpha, beta, gamma = F.softmax(torch.stack([unconstrained_alpha, unconstrained_beta, zero]), dim=0)
+        omega = var_0 * gamma
         return LogDailyReturnParams(
+            mu=self.mu,
+            var_0=var_0,
             alpha=alpha,
             beta=beta,
             gamma=gamma,
+            omega=omega,
         )
 
     def print_params(self) -> None:
-        params = self._params()
-        print(f"Fixed parameters: mu={self.mu.item():.6f}, var_0={self.var_0.item():.6f}")
-        print(f"Current parameters: alpha={params.alpha.item():.6f}, beta={params.beta.item():.6f}, gamma={params.gamma.item():.6f}")
+        params = self._params(
+            self.unconstrained_var_0,
+            self.unconstrained_alpha,
+            self.unconstrained_beta,
+        )
+        print(f"Current parameters: mu={params.mu.item():.6f}, var_0={params.var_0.item():.6f}, alpha={params.alpha.item():.6f}, beta={params.beta.item():.6f}, gamma={params.gamma.item():.6f}, omega={params.omega.item():.6f}")
 
-    def _negative_log_likelihood(self, x: torch.Tensor) -> torch.Tensor:
-        params = self._params()
-        omega = self.var_0 * params.gamma
-        squared_z = (x - self.mu).square()
+    def _negative_log_likelihood(self, params: LogDailyReturnParams, x: torch.Tensor) -> torch.Tensor:
+        squared_z = (x - params.mu).square()
         var: list[torch.Tensor] = []
         for i in range(x.shape[0]):
             if i == 0:
-                var.append(self.var_0)
+                var.append(params.var_0)
             else:
-                var.append(omega + params.alpha * squared_z[i-1] + params.beta * var[i-1])
+                var.append(params.omega + params.alpha * squared_z[i-1] + params.beta * var[i-1])
         var: torch.Tensor = torch.stack(var)
         return 0.5 * (log_doubled_pi + torch.log(var) + squared_z / var).sum()
 
@@ -79,19 +94,46 @@ class LogDailyReturnModel(nn.Module):
         if x.ndim != 1:
             raise ValueError(f"Invalid input: expected 1-dimensional input, but got {x.ndim}-dimensional input")
 
-        return self._negative_log_likelihood(x)
+        params = self._params(
+            self.unconstrained_var_0,
+            self.unconstrained_alpha,
+            self.unconstrained_beta,
+        )
+        return self._negative_log_likelihood(params, x)
+
+    def sample_negative_log_one_minus_mdd(self, num_samples: int, num_days: int) -> torch.Tensor:
+        with torch.no_grad():
+            params = self._params(
+                self.unconstrained_var_0,
+                self.unconstrained_alpha,
+                self.unconstrained_beta,
+            )
+            current_log_return = params.mu.new_zeros((num_samples,))
+            peak_log_return = params.mu.new_zeros((num_samples,))
+            negative_log_one_minus_mdd = params.mu.new_zeros((num_samples,))
+            var_i = params.var_0.repeat((num_samples,))
+            for _ in range(num_days):
+                x_i = torch.normal(params.mu, torch.sqrt(var_i))
+                current_log_return += x_i
+                peak_log_return = torch.maximum(peak_log_return, current_log_return)
+                negative_log_one_minus_mdd = torch.maximum(negative_log_one_minus_mdd, peak_log_return - current_log_return)
+                var_i = params.omega + params.alpha * (x_i - params.mu).square() + params.beta * var_i
+            return negative_log_one_minus_mdd
 
     def sample_log_annual_return(self, num_samples: int) -> torch.Tensor:
         with torch.no_grad():
-            params = self._params()
-            omega = self.var_0 * params.gamma
-            samples = self.mu.new_zeros((num_samples,))
-            var_i = self.var_0.repeat((num_samples,))
+            params = self._params(
+                self.unconstrained_var_0,
+                self.unconstrained_alpha,
+                self.unconstrained_beta,
+            )
+            log_annual_return = params.mu.new_zeros((num_samples,))
+            var_i = params.var_0.repeat((num_samples,))
             for _ in range(252):
-                x_i = torch.normal(self.mu, torch.sqrt(var_i))
-                samples += x_i
-                var_i = omega + params.alpha * (x_i - self.mu).square() + params.beta * var_i
-            return samples
+                x_i = torch.normal(params.mu, torch.sqrt(var_i))
+                log_annual_return += x_i
+                var_i = params.omega + params.alpha * (x_i - params.mu).square() + params.beta * var_i
+            return log_annual_return
 
 
 def main() -> None:
@@ -109,27 +151,44 @@ def main() -> None:
     model.print_params()
 
     # Fit model
-    data = torch.from_numpy(series_of_log_daily_return).to(torch.float64)
+    data = torch.from_numpy(series_of_log_daily_return)
     fit_model(model, data, lr=0.5, num_iterations=200)
     model.print_params()
 
+    # Compute covariance matrix of parameters
+    theta_hat = torch.stack([
+        model.unconstrained_var_0,
+        model.unconstrained_alpha,
+        model.unconstrained_beta,
+    ])
+    hessian = torch.autograd.functional.hessian(lambda theta: model._negative_log_likelihood(model._params(
+        theta[0],
+        theta[1],
+        theta[2],
+    ), data), theta_hat)
+    print(f"Eigenvalues of Hessian: {torch.linalg.eigvalsh(hessian)}")
+    cov: torch.Tensor = torch.linalg.inv(hessian)
+
+    # Compute 90% confidence interval of annual long-run volatility
+    se_of_unconstrained_var_0 = torch.sqrt(cov[0, 0])
+    lower_bound_of_unconstrained_var_0 = model.unconstrained_var_0 - stats.norm.ppf(0.95) * se_of_unconstrained_var_0
+    upper_bound_of_unconstrained_var_0 = model.unconstrained_var_0 - stats.norm.ppf(0.05) * se_of_unconstrained_var_0
+    print(f"90% confidence interval of annual long-run volatility: [{torch.sqrt(F.softplus(lower_bound_of_unconstrained_var_0) * 252).item():.2f}, {torch.sqrt(F.softplus(upper_bound_of_unconstrained_var_0) * 252).item():.2f}]")
+
+    # Compute 90% Monte Carlo interval of MDD in 3 years
+    samples_of_negative_log_one_minus_mdd = model.sample_negative_log_one_minus_mdd(100000, 252*3).detach().numpy()
+
+    lower_bound_of_negative_log_one_minus_mdd = np.percentile(samples_of_negative_log_one_minus_mdd, 5)
+    upper_bound_of_negative_log_one_minus_mdd = np.percentile(samples_of_negative_log_one_minus_mdd, 95)
+    print(f"90% Monte Carlo interval of MDD in 3 years: [{1 - np.exp(-lower_bound_of_negative_log_one_minus_mdd):.2f}, {1 - np.exp(-upper_bound_of_negative_log_one_minus_mdd):.2f}]")
+
+    # Compute 50% Monte Carlo interval of MDD in 3 years
+    sublower_bound_of_negative_log_one_minus_mdd = np.percentile(samples_of_negative_log_one_minus_mdd, 25)
+    subupper_bound_of_negative_log_one_minus_mdd = np.percentile(samples_of_negative_log_one_minus_mdd, 75)
+    print(f"50% Monte Carlo interval of MDD in 3 years: [{1 - np.exp(-sublower_bound_of_negative_log_one_minus_mdd):.2f}, {1 - np.exp(-subupper_bound_of_negative_log_one_minus_mdd):.2f}]")
+
     # Sample log annual return
     samples_of_log_annual_return = model.sample_log_annual_return(100000).reshape((1000, 100)).detach().numpy()
-
-    # Compute 90% confidence interval of annual volatility
-    lower_bound_of_annual_volatility = np.percentile(np.sqrt(samples_of_log_annual_return.var(ddof=1, axis=1)), 5)
-    upper_bound_of_annual_volatility = np.percentile(np.sqrt(samples_of_log_annual_return.var(ddof=1, axis=1)), 95)
-    print(f"90% confidence interval of annual volatility: [{lower_bound_of_annual_volatility:.2f}, {upper_bound_of_annual_volatility:.2f}]")
-
-    # Compute 80% confidence interval of mean of log annual return
-    lower_bound_of_mean_of_log_annual_return = np.percentile(samples_of_log_annual_return.mean(axis=1), 10)
-    upper_bound_of_mean_of_log_annual_return = np.percentile(samples_of_log_annual_return.mean(axis=1), 90)
-    print(f"80% confidence interval of mean of log annual return: [{lower_bound_of_mean_of_log_annual_return:.2f}, {upper_bound_of_mean_of_log_annual_return:.2f}]")
-
-    # Compute 50% confidence interval of mean of log annual return
-    sublower_bound_of_mean_of_log_annual_return = np.percentile(samples_of_log_annual_return.mean(axis=1), 25)
-    subupper_bound_of_mean_of_log_annual_return = np.percentile(samples_of_log_annual_return.mean(axis=1), 75)
-    print(f"50% confidence interval of mean of log annual return: [{sublower_bound_of_mean_of_log_annual_return:.2f}, {subupper_bound_of_mean_of_log_annual_return:.2f}]")
 
     # Compute near-worst-case annual return
     def cdf_of_near_worst_case_annual_return(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
