@@ -23,7 +23,7 @@ concurrency:
 jobs:
   run-publisher-config-names:
     runs-on: ubuntu-latest
-    output:
+    outputs:
       config_names: ${{ steps.run-publisher-config-names.outputs.config_names }}
     steps:
     - name: Checkout repository
