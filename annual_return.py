@@ -38,8 +38,9 @@ def main() -> None:
         current_log_return: npt.NDArray[np.float64] = np.zeros((num_samples,))
         peak_log_return: npt.NDArray[np.float64] = np.zeros((num_samples,))
         negative_log_one_minus_mdd: npt.NDArray[np.float64] = np.zeros((num_samples,))
+
         for _ in range(num_days):
-            x_i = np.random.normal(daily_drift_minus_halved_squared_daily_volatility, daily_volatility, size=(num_samples,))
+            x_i = np.random.normal(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility, upper_bound_of_daily_volatility, size=(num_samples,))
             current_log_return += x_i
             peak_log_return = np.maximum(peak_log_return, current_log_return)
             negative_log_one_minus_mdd = np.maximum(negative_log_one_minus_mdd, peak_log_return - current_log_return)
@@ -56,10 +57,10 @@ def main() -> None:
     print(f"50% Monte Carlo interval of MDD in 3 years: [{1 - np.exp(-sublower_bound_of_negative_log_one_minus_mdd):.2f}, {1 - np.exp(-subupper_bound_of_negative_log_one_minus_mdd):.2f}]")
 
     # Compute near-worst-case annual return
-    near_worst_case_annual_return = stats.lognorm(s=daily_volatility*sqrt_252, scale=np.exp(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+    near_worst_case_annual_return = stats.lognorm(s=upper_bound_of_daily_volatility*sqrt_252, scale=np.exp(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
 
     # Compute subnear-worst-case annual return
-    subnear_worst_case_annual_return = stats.lognorm(s=daily_volatility*sqrt_252, scale=np.exp(sublower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+    subnear_worst_case_annual_return = stats.lognorm(s=upper_bound_of_daily_volatility*sqrt_252, scale=np.exp(sublower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
 
     # Compute series of annual return
     series_of_annual_return: npt.NDArray[np.float64] = series_of_daily_return[series_of_daily_return.shape[0] % 252:].reshape((-1, 252)).prod(axis=1)
