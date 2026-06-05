@@ -9,62 +9,62 @@ interface UnrecognizedStockSplit {
 
 const unrecognizedStockSplits: UnrecognizedStockSplit[] = [
   {
-    pathToJSON: './N225_JST_JPY/1579.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2024-07-02',
     ratio: 0.01,
   },
   {
-    pathToJSON: './N225_JST_JPY/1579.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2024-07-01',
     ratio: 100,
   },
   {
-    pathToJSON: './N225_JST_JPY/1579.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2024-06-28',
     ratio: 100,
   },
   {
-    pathToJSON: './N225_JST_JPY/1579.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2021-03-05',
     ratio: 0.5,
   },
   {
-    pathToJSON: './N225_JST_JPY/1579.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2021-03-03',
     ratio: 2,
   },
   {
-    pathToJSON: './N225_JST_JPY/1579.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2013-05-09',
     ratio: 2,
   },
   {
-    pathToJSON: './TOPIX_JST_JPY/1306.T_JST_JPY.json',
+    pathToJSON: './data/TOPIX_JST_JPY/1306.T_JST_JPY.json',
     date: '2026-03-30',
     ratio: 10,
   },
   {
-    pathToJSON: './TOPIX_JST_JPY/1568.T_JST_JPY.json',
+    pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
     date: '2024-07-02',
     ratio: 0.01,
   },
   {
-    pathToJSON: './TOPIX_JST_JPY/1568.T_JST_JPY.json',
+    pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
     date: '2024-07-01',
     ratio: 100,
   },
   {
-    pathToJSON: './TOPIX_JST_JPY/1568.T_JST_JPY.json',
+    pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
     date: '2024-06-28',
     ratio: 100,
   },
   {
-    pathToJSON: './TOPIX_JST_JPY/1568.T_JST_JPY.json',
+    pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
     date: '2015-06-18',
     ratio: 2,
   },
   {
-    pathToJSON: './TOPIX_JST_JPY/1568.T_JST_JPY.json',
+    pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
     date: '2012-04-05',
     ratio: 0.5,
   },
