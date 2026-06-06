@@ -42,8 +42,8 @@ def main() -> None:
         for _ in range(num_days):
             x_i = np.random.normal(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility, upper_bound_of_daily_volatility, size=(num_samples,))
             current_log_return += x_i
-            peak_log_return = np.maximum(peak_log_return, current_log_return)
-            negative_log_one_minus_mdd = np.maximum(negative_log_one_minus_mdd, peak_log_return - current_log_return)
+            peak_log_return: npt.NDArray[np.float64] = np.maximum(peak_log_return, current_log_return)
+            negative_log_one_minus_mdd: npt.NDArray[np.float64] = np.maximum(negative_log_one_minus_mdd, peak_log_return - current_log_return)
         return negative_log_one_minus_mdd
     samples_of_negative_log_one_minus_mdd = sample_negative_log_one_minus_mdd(100000, 252*3)
 
@@ -57,19 +57,31 @@ def main() -> None:
     print(f"50% Monte Carlo interval of MDD in 3 years: [{1 - np.exp(-sublower_bound_of_negative_log_one_minus_mdd):.2f}, {1 - np.exp(-subupper_bound_of_negative_log_one_minus_mdd):.2f}]")
 
     # Compute near-worst-case annual return
-    near_worst_case_annual_return = stats.lognorm(s=upper_bound_of_daily_volatility*sqrt_252, scale=np.exp(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+    near_worst_case_annual_return_1 = stats.lognorm(s=upper_bound_of_daily_volatility*sqrt_252, scale=np.exp(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+    near_worst_case_annual_return_2 = stats.lognorm(s=lower_bound_of_daily_volatility*sqrt_252, scale=np.exp(lower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+
+    def cdf_of_near_worst_case_annual_return(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        cdf1: npt.NDArray[np.float64] = near_worst_case_annual_return_1.cdf(x)
+        cdf2: npt.NDArray[np.float64] = near_worst_case_annual_return_2.cdf(x)
+        return np.maximum(cdf1, cdf2)
 
     # Compute subnear-worst-case annual return
-    subnear_worst_case_annual_return = stats.lognorm(s=upper_bound_of_daily_volatility*sqrt_252, scale=np.exp(sublower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+    subnear_worst_case_annual_return_1 = stats.lognorm(s=upper_bound_of_daily_volatility*sqrt_252, scale=np.exp(sublower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+    subnear_worst_case_annual_return_2 = stats.lognorm(s=lower_bound_of_daily_volatility*sqrt_252, scale=np.exp(sublower_bound_of_daily_drift_minus_halved_squared_daily_volatility * 252))
+
+    def cdf_of_subnear_worst_case_annual_return(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        cdf1: npt.NDArray[np.float64] = subnear_worst_case_annual_return_1.cdf(x)
+        cdf2: npt.NDArray[np.float64] = subnear_worst_case_annual_return_2.cdf(x)
+        return np.maximum(cdf1, cdf2)
 
     # Compute series of annual return
     series_of_annual_return: npt.NDArray[np.float64] = series_of_daily_return[series_of_daily_return.shape[0] % 252:].reshape((-1, 252)).prod(axis=1)
 
     # Plot annual return
     x = np.linspace(0, 3, 1000)
-    y1 = near_worst_case_annual_return.cdf(x)
+    y1 = cdf_of_near_worst_case_annual_return(x)
     plt.plot(x, y1, label="Near-worst-case Theoretical")
-    y2 = subnear_worst_case_annual_return.cdf(x)
+    y2 = cdf_of_subnear_worst_case_annual_return(x)
     plt.plot(x, y2, label="Subnear-worst-case Theoretical")
     plt.hist(series_of_annual_return, bins=series_of_annual_return.shape[0], density=True, cumulative=True, alpha=0.5, label="Empirical")
     plt.xlabel("Annual return")

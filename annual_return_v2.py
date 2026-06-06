@@ -172,24 +172,24 @@ def main() -> None:
     # Compute 90% confidence interval of annual long-run volatility
     se_of_unconstrained_var_0 = torch.sqrt(cov[1, 1])
 
-    lower_bound_of_unconstrained_var_0 = model.unconstrained_var_0 - stats.norm.ppf(0.95) * se_of_unconstrained_var_0
-    upper_bound_of_unconstrained_var_0 = model.unconstrained_var_0 - stats.norm.ppf(0.05) * se_of_unconstrained_var_0
+    lower_bound_of_unconstrained_var_0: torch.Tensor = model.unconstrained_var_0 - stats.norm.ppf(0.95) * se_of_unconstrained_var_0
+    upper_bound_of_unconstrained_var_0: torch.Tensor = model.unconstrained_var_0 - stats.norm.ppf(0.05) * se_of_unconstrained_var_0
     print(f"90% confidence interval of annual long-run volatility: [{torch.sqrt(F.softplus(lower_bound_of_unconstrained_var_0)).item():.2f}, {torch.sqrt(F.softplus(upper_bound_of_unconstrained_var_0)).item():.2f}]")
 
     # Compute 80% confidence interval of mean of log annual return
     se_of_unconstrained_mu = torch.sqrt(cov[0, 0])
 
-    lower_bound_of_unconstrained_mu = model.unconstrained_mu - stats.norm.ppf(0.90) * se_of_unconstrained_mu
-    upper_bound_of_unconstrained_mu = model.unconstrained_mu - stats.norm.ppf(0.10) * se_of_unconstrained_mu
+    lower_bound_of_unconstrained_mu: torch.Tensor = model.unconstrained_mu - stats.norm.ppf(0.90) * se_of_unconstrained_mu
+    upper_bound_of_unconstrained_mu: torch.Tensor = model.unconstrained_mu - stats.norm.ppf(0.10) * se_of_unconstrained_mu
     print(f"80% confidence interval of mean of log annual return: [{lower_bound_of_unconstrained_mu.item():.2f}, {upper_bound_of_unconstrained_mu.item():.2f}]")
 
     # Compute 50% confidence interval of mean of log annual return
-    sublower_bound_of_unconstrained_mu = model.unconstrained_mu - stats.norm.ppf(0.75) * se_of_unconstrained_mu
-    subupper_bound_of_unconstrained_mu = model.unconstrained_mu - stats.norm.ppf(0.25) * se_of_unconstrained_mu
+    sublower_bound_of_unconstrained_mu: torch.Tensor = model.unconstrained_mu - stats.norm.ppf(0.75) * se_of_unconstrained_mu
+    subupper_bound_of_unconstrained_mu: torch.Tensor = model.unconstrained_mu - stats.norm.ppf(0.25) * se_of_unconstrained_mu
     print(f"50% confidence interval of mean of log annual return: [{sublower_bound_of_unconstrained_mu.item():.2f}, {subupper_bound_of_unconstrained_mu.item():.2f}]")
 
     # Compute 90% Monte Carlo interval of MDD in 3 years
-    samples_of_negative_log_one_minus_mdd = model._sample_negative_log_one_minus_mdd(model._params(
+    samples_of_negative_log_one_minus_mdd: npt.NDArray[np.float64] = model._sample_negative_log_one_minus_mdd(model._params(
         lower_bound_of_unconstrained_mu,
         upper_bound_of_unconstrained_var_0,
         model.unconstrained_alpha,
@@ -206,26 +206,42 @@ def main() -> None:
     print(f"50% Monte Carlo interval of MDD in 3 years: [{1 - np.exp(-sublower_bound_of_negative_log_one_minus_mdd):.2f}, {1 - np.exp(-subupper_bound_of_negative_log_one_minus_mdd):.2f}]")
 
     # Compute near-worst-case annual return
-    samples_of_near_worst_case_log_annual_return = model._sample_log_annual_return(model._params(
+    samples_of_near_worst_case_log_annual_return_1: npt.NDArray[np.float64] = model._sample_log_annual_return(model._params(
         lower_bound_of_unconstrained_mu,
         upper_bound_of_unconstrained_var_0,
         model.unconstrained_alpha,
         model.unconstrained_beta,
     ), 10000).detach().numpy()
+    samples_of_near_worst_case_log_annual_return_2: npt.NDArray[np.float64] = model._sample_log_annual_return(model._params(
+        lower_bound_of_unconstrained_mu,
+        lower_bound_of_unconstrained_var_0,
+        model.unconstrained_alpha,
+        model.unconstrained_beta,
+    ), 10000).detach().numpy()
 
     def cdf_of_near_worst_case_annual_return(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return (samples_of_near_worst_case_log_annual_return[:, None] <= np.log(x)[None, :]).mean(axis=0)
+        cdf1: npt.NDArray[np.float64] = (samples_of_near_worst_case_log_annual_return_1[:, None] <= np.log(x)[None, :]).mean(axis=0)
+        cdf2: npt.NDArray[np.float64] = (samples_of_near_worst_case_log_annual_return_2[:, None] <= np.log(x)[None, :]).mean(axis=0)
+        return np.maximum(cdf1, cdf2)
 
     # Compute subnear-worst-case annual return
-    samples_of_subnear_worst_case_log_annual_return = model._sample_log_annual_return(model._params(
+    samples_of_subnear_worst_case_log_annual_return_1: npt.NDArray[np.float64] = model._sample_log_annual_return(model._params(
         sublower_bound_of_unconstrained_mu,
         upper_bound_of_unconstrained_var_0,
         model.unconstrained_alpha,
         model.unconstrained_beta,
     ), 10000).detach().numpy()
+    samples_of_subnear_worst_case_log_annual_return_2: npt.NDArray[np.float64] = model._sample_log_annual_return(model._params(
+        sublower_bound_of_unconstrained_mu,
+        lower_bound_of_unconstrained_var_0,
+        model.unconstrained_alpha,
+        model.unconstrained_beta,
+    ), 10000).detach().numpy()
 
     def cdf_of_subnear_worst_case_annual_return(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return (samples_of_subnear_worst_case_log_annual_return[:, None] <= np.log(x)[None, :]).mean(axis=0)
+        cdf1: npt.NDArray[np.float64] = (samples_of_subnear_worst_case_log_annual_return_1[:, None] <= np.log(x)[None, :]).mean(axis=0)
+        cdf2: npt.NDArray[np.float64] = (samples_of_subnear_worst_case_log_annual_return_2[:, None] <= np.log(x)[None, :]).mean(axis=0)
+        return np.maximum(cdf1, cdf2)
 
     # Compute series of annual return
     series_of_annual_return: npt.NDArray[np.float64] = series_of_daily_return[series_of_daily_return.shape[0] % 252:].reshape((-1, 252)).prod(axis=1)
