@@ -155,11 +155,11 @@ def main() -> None:
 
     # Compute covariance matrix of parameters
     theta_hat = torch.stack([
-        model.unconstrained_mu,
-        model.unconstrained_var_0,
-        model.unconstrained_alpha,
-        model.unconstrained_beta,
-    ]).detach().requires_grad_(True)
+        model.unconstrained_mu.detach(),
+        model.unconstrained_var_0.detach(),
+        model.unconstrained_alpha.detach(),
+        model.unconstrained_beta.detach(),
+    ]).requires_grad_(True)
     hessian = torch.autograd.functional.hessian(lambda theta: model._negative_log_likelihood(model._params(
         theta[0],
         theta[1],
