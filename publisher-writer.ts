@@ -14,10 +14,6 @@ interface AnnualReturnV2PyOutput {
   upperBoundOfMeanOfLogAnnualReturn: number;
   sublowerBoundOfMeanOfLogAnnualReturn: number;
   subupperBoundOfMeanOfLogAnnualReturn: number;
-  lowerBoundOfMonteCarloIntervalOfMDD: number;
-  upperBoundOfMonteCarloIntervalOfMDD: number;
-  sublowerBoundOfMonteCarloIntervalOfMDD: number;
-  subupperBoundOfMonteCarloIntervalOfMDD: number;
 }
 
 function annualReturnV2PyStdoutParser(stdout: string): AnnualReturnV2PyOutput {
@@ -78,26 +74,6 @@ function annualReturnV2PyStdoutParser(stdout: string): AnnualReturnV2PyOutput {
           output.subupperBoundOfMeanOfLogAnnualReturn = parseFloat(match[2]);
         }
         break;
-      case line.startsWith('90% Monte Carlo interval of MDD in 3 years:'):
-        {
-          const match = /90% Monte Carlo interval of MDD in 3 years: \[(.*), (.*)\]/.exec(line);
-          if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse Monte Carlo interval of MDD from line: ${line}`);
-          }
-          output.lowerBoundOfMonteCarloIntervalOfMDD = parseFloat(match[1]);
-          output.upperBoundOfMonteCarloIntervalOfMDD = parseFloat(match[2]);
-        }
-        break;
-      case line.startsWith('50% Monte Carlo interval of MDD in 3 years:'):
-        {
-          const match = /50% Monte Carlo interval of MDD in 3 years: \[(.*), (.*)\]/.exec(line);
-          if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse Monte Carlo interval of MDD from line: ${line}`);
-          }
-          output.sublowerBoundOfMonteCarloIntervalOfMDD = parseFloat(match[1]);
-          output.subupperBoundOfMonteCarloIntervalOfMDD = parseFloat(match[2]);
-        }
-        break;
       default:
         throw new Error(`Unexpected line in annual_return_v2.py stdout: ${line}`);
     }
@@ -120,12 +96,6 @@ function annualReturnV2PyStdoutParser(stdout: string): AnnualReturnV2PyOutput {
   if (output.sublowerBoundOfMeanOfLogAnnualReturn === undefined || output.subupperBoundOfMeanOfLogAnnualReturn === undefined) {
     throw new Error('Missing confidence interval of mean of log annual return in annual_return_v2.py stdout');
   }
-  if (output.lowerBoundOfMonteCarloIntervalOfMDD === undefined || output.upperBoundOfMonteCarloIntervalOfMDD === undefined) {
-    throw new Error('Missing Monte Carlo interval of MDD in annual_return_v2.py stdout');
-  }
-  if (output.sublowerBoundOfMonteCarloIntervalOfMDD === undefined || output.subupperBoundOfMonteCarloIntervalOfMDD === undefined) {
-    throw new Error('Missing Monte Carlo interval of MDD in annual_return_v2.py stdout');
-  }
   return output as AnnualReturnV2PyOutput;
 }
 
@@ -141,10 +111,6 @@ interface AnnualReturnPyOutput {
   upperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
   sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
   subupperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility: number;
-  lowerBoundOfMonteCarloIntervalOfMDD: number;
-  upperBoundOfMonteCarloIntervalOfMDD: number;
-  sublowerBoundOfMonteCarloIntervalOfMDD: number;
-  subupperBoundOfMonteCarloIntervalOfMDD: number;
 }
 
 function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
@@ -199,26 +165,6 @@ function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
           output.subupperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility = parseFloat(match[2]);
         }
         break;
-      case line.startsWith('90% Monte Carlo interval of MDD in 3 years:'):
-        {
-          const match = /90% Monte Carlo interval of MDD in 3 years: \[(.*), (.*)\]/.exec(line);
-          if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse Monte Carlo interval of MDD from line: ${line}`);
-          }
-          output.lowerBoundOfMonteCarloIntervalOfMDD = parseFloat(match[1]);
-          output.upperBoundOfMonteCarloIntervalOfMDD = parseFloat(match[2]);
-        }
-        break;
-      case line.startsWith('50% Monte Carlo interval of MDD in 3 years:'):
-        {
-          const match = /50% Monte Carlo interval of MDD in 3 years: \[(.*), (.*)\]/.exec(line);
-          if (!match?.[1] || !match[2]) {
-            throw new Error(`Failed to parse Monte Carlo interval of MDD from line: ${line}`);
-          }
-          output.sublowerBoundOfMonteCarloIntervalOfMDD = parseFloat(match[1]);
-          output.subupperBoundOfMonteCarloIntervalOfMDD = parseFloat(match[2]);
-        }
-        break;
       default:
         throw new Error(`Unexpected line in annual_return.py stdout: ${line}`);
     }
@@ -240,12 +186,6 @@ function annualReturnPyStdoutParser(stdout: string): AnnualReturnPyOutput {
   }
   if (output.sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility === undefined || output.subupperBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility === undefined) {
     throw new Error('Missing confidence interval of annual drift minus halved squared annual volatility in annual_return.py stdout');
-  }
-  if (output.lowerBoundOfMonteCarloIntervalOfMDD === undefined || output.upperBoundOfMonteCarloIntervalOfMDD === undefined) {
-    throw new Error('Missing Monte Carlo interval of MDD in annual_return.py stdout');
-  }
-  if (output.sublowerBoundOfMonteCarloIntervalOfMDD === undefined || output.subupperBoundOfMonteCarloIntervalOfMDD === undefined) {
-    throw new Error('Missing Monte Carlo interval of MDD in annual_return.py stdout');
   }
   return output as AnnualReturnPyOutput;
 }
@@ -283,10 +223,9 @@ indexHTML.write(`
           <th scope="col">90% CI of Annual Long-Run Vol</th>
           <th scope="col">Test w/ α = 10%</th>
           <th scope="col">Test w/ α = 25%</th>
-          <th scope="col">90% MCI of MDD in 3 yrs</th>
-          <th scope="col">50% MCI of MDD in 3 yrs</th>
           <th scope="col">Stdout</th>
           <th scope="col">Plot</th>
+          <th scope="col">Plot (MDD days)</th>
         </tr>
       </thead>
       <tbody>
@@ -305,10 +244,9 @@ for (const config of configs) {
           <td>[${output.lowerBoundOfAnnualLongRunVolatility.toFixed(2)}, ${output.upperBoundOfAnnualLongRunVolatility.toFixed(2)}]</td>
           <td>${output.lowerBoundOfMeanOfLogAnnualReturn > 0 ? '&#9989;' : '&#10060;'}</td>
           <td>${output.sublowerBoundOfMeanOfLogAnnualReturn > 0 ? '&#9989;' : '&#10060;'}</td>
-          <td>[${output.lowerBoundOfMonteCarloIntervalOfMDD.toFixed(2)}, ${output.upperBoundOfMonteCarloIntervalOfMDD.toFixed(2)}]</td>
-          <td>[${output.sublowerBoundOfMonteCarloIntervalOfMDD.toFixed(2)}, ${output.subupperBoundOfMonteCarloIntervalOfMDD.toFixed(2)}]</td>
           <td><a href="${md5Hash(`${config.name} / annual_return_v2.py`)}.txt">Stdout</a></td>
           <td><a href="${md5Hash(`${config.name} / annual_return_v2.py`)}.png">Plot</a></td>
+          <td><a href="${md5Hash(`${config.name} / annual_return_v2.py`)}_mddd.png">Plot</a></td>
         </tr>
   `);
 }
@@ -326,10 +264,9 @@ indexHTML.write(`
           <th scope="col">90% CI of Annual Vol</th>
           <th scope="col">Test w/ α = 10%</th>
           <th scope="col">Test w/ α = 25%</th>
-          <th scope="col">90% MCI of MDD in 3 yrs</th>
-          <th scope="col">50% MCI of MDD in 3 yrs</th>
           <th scope="col">Stdout</th>
           <th scope="col">Plot</th>
+          <th scope="col">Plot (MDD days)</th>
         </tr>
       </thead>
       <tbody>
@@ -348,10 +285,9 @@ for (const config of configs) {
           <td>[${output.lowerBoundOfAnnualVolatility.toFixed(2)}, ${output.upperBoundOfAnnualVolatility.toFixed(2)}]</td>
           <td>${output.lowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility > 0 ? '&#9989;' : '&#10060;'}</td>
           <td>${output.sublowerBoundOfAnnualDriftMinusHalvedSquaredAnnualVolatility > 0 ? '&#9989;' : '&#10060;'}</td>
-          <td>[${output.lowerBoundOfMonteCarloIntervalOfMDD.toFixed(2)}, ${output.upperBoundOfMonteCarloIntervalOfMDD.toFixed(2)}]</td>
-          <td>[${output.sublowerBoundOfMonteCarloIntervalOfMDD.toFixed(2)}, ${output.subupperBoundOfMonteCarloIntervalOfMDD.toFixed(2)}]</td>
           <td><a href="${md5Hash(`${config.name} / annual_return.py`)}.txt">Stdout</a></td>
           <td><a href="${md5Hash(`${config.name} / annual_return.py`)}.png">Plot</a></td>
+          <td><a href="${md5Hash(`${config.name} / annual_return.py`)}_mddd.png">Plot</a></td>
         </tr>
   `);
 }
