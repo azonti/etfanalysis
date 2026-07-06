@@ -40,6 +40,11 @@ const unrecognizedStockSplits: UnrecognizedStockSplit[] = [
   },
   {
     pathToJSON: './data/TOPIX_JST_JPY/1306.T_JST_JPY.json',
+    date: '2026-04-01',
+    ratio: 0.1,
+  },
+  {
+    pathToJSON: './data/TOPIX_JST_JPY/1306.T_JST_JPY.json',
     date: '2026-03-30',
     ratio: 10,
   },
@@ -62,6 +67,11 @@ const unrecognizedStockSplits: UnrecognizedStockSplit[] = [
     pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
     date: '2015-06-18',
     ratio: 2,
+  },
+  {
+    pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
+    date: '2015-01-05',
+    ratio: 10,
   },
   {
     pathToJSON: './data/TOPIX_JST_JPY/1568.T_JST_JPY.json',
