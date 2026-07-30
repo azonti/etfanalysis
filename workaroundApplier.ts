@@ -9,6 +9,11 @@ interface UnrecognizedStockSplit {
 
 const unrecognizedStockSplits: UnrecognizedStockSplit[] = [
   {
+    pathToJSON: './data/SOX_EST_USD/SOXS_EST_USD.json',
+    date: '2026-05-26',
+    ratio: 20,
+  },
+  {
     pathToJSON: './data/N225_JST_JPY/1579.T_JST_JPY.json',
     date: '2024-07-02',
     ratio: 0.01,
