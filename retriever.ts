@@ -209,7 +209,7 @@ async function delay(ms: number): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function retry(fn: () => Promise<void>, nRetries = 5, delayMs = 1000): Promise<void> {
+async function retry(fn: () => Promise<void>, nRetries = 50, delayMs = 5000): Promise<void> {
   for (let i = 0; i < nRetries; i++) {
     try {
       await fn();
