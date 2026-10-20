@@ -159,9 +159,9 @@ const configs: readonly Config[] = [
     pathToJSON: './data/N225_JST_JPY/N225_JST_JPY.json',
   },
   {
-    name: '1321.T_JST_JPY',
-    tickerSymbol: '1321.T',
-    pathToJSON: './data/N225_JST_JPY/1321.T_JST_JPY.json',
+    name: '1320.T_JST_JPY',
+    tickerSymbol: '1320.T',
+    pathToJSON: './data/N225_JST_JPY/1320.T_JST_JPY.json',
   },
   {
     name: '1579.T_JST_JPY',

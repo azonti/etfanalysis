@@ -139,7 +139,7 @@ export const configs: readonly Config[] = [
   },
   {
     name: 'N225',
-    pathToJSON: './data/N225_JST_JPY/1321.T_JST_JPY.json',
+    pathToJSON: './data/N225_JST_JPY/1320.T_JST_JPY.json',
     pathToSupplementaryJSON: './data/N225_JST_JPY/N225_JST_JPY.json',
   },
   {
